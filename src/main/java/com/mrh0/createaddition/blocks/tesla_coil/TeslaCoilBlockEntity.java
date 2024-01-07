@@ -12,6 +12,7 @@ import com.simibubi.create.content.kinetics.belt.behaviour.BeltProcessingBehavio
 import com.simibubi.create.content.kinetics.belt.behaviour.TransportedItemStackHandlerBehaviour;
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
+import com.simibubi.create.foundation.utility.VecHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
@@ -39,6 +40,7 @@ import net.minecraftforge.items.wrapper.RecipeWrapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHaveGoggleInformation {
 
@@ -106,8 +108,8 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 		return res;
 	}
 
-	private void doDmg() {
-		localEnergy.internalConsumeEnergy(Config.TESLA_COIL_HURT_ENERGY_REQUIRED.get());
+	private void targetNearby(Consumer<LivingEntity> callback, boolean simulate) {
+		if (simulate && !level.isClientSide) localEnergy.internalConsumeEnergy(Config.TESLA_COIL_HURT_ENERGY_REQUIRED.get());
 		BlockPos origin = getBlockPos().relative(getBlockState().getValue(TeslaCoilBlock.FACING).getOpposite());
 		List<LivingEntity> ents = getLevel().getEntitiesOfClass(LivingEntity.class, new AABB(origin).inflate(Config.TESLA_COIL_HURT_RANGE.get()));
 		for(LivingEntity e : ents) {
@@ -124,16 +126,23 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 			}
 			if(allChain) continue;
 
-			int dmg = Config.TESLA_COIL_HURT_DMG_MOB.get();
-			int time = Config.TESLA_COIL_HURT_EFFECT_TIME_MOB.get();
-			if(e instanceof Player) {
-				dmg = Config.TESLA_COIL_HURT_DMG_PLAYER.get();
-				time = Config.TESLA_COIL_HURT_EFFECT_TIME_PLAYER.get();
-			}
-			if(dmg > 0) e.hurt(DMG_SOURCE, dmg);
-			if(time > 0) e.addEffect(new MobEffectInstance(CAEffects.SHOCKING.get(), time));
+			callback.accept(e);
 		}
 	}
+
+	public void shockEntity(LivingEntity entity) {
+		int dmg = Config.TESLA_COIL_HURT_DMG_MOB.get();
+		int time = Config.TESLA_COIL_HURT_EFFECT_TIME_MOB.get();
+		if(entity instanceof Player) {
+			dmg = Config.TESLA_COIL_HURT_DMG_PLAYER.get();
+			time = Config.TESLA_COIL_HURT_EFFECT_TIME_PLAYER.get();
+		}
+
+		if(dmg > 0) entity.hurt(DMG_SOURCE, dmg);
+		if(time > 0) entity.addEffect(new MobEffectInstance(CAEffects.SHOCKING.get(), time + 1, 0, false, false));
+	}
+
+
 
 	int dmgTick = 0;
 	int soundTimeout = 0;
@@ -157,7 +166,7 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 
 		dmgTick++;
 		if((dmgTick%=Config.TESLA_COIL_HURT_FIRE_COOLDOWN.get()) == 0 && localEnergy.getEnergyStored() >= Config.TESLA_COIL_HURT_ENERGY_REQUIRED.get() && signal > 0)
-			doDmg();
+			targetNearby(this::shockEntity, false);
 
 		if(poweredTimer > 0) {
 			if(!isPoweredState())
@@ -175,7 +184,8 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 	public void tickParticles() {
 		if (!isPoweredState()) return;
 		// spawn processing particles when the tesla is charging an item
-		if (getBlockState().getValue(TeslaCoilBlock.FACING) == Direction.UP) spawnChargingParticle(level, worldPosition.below(2));
+		if (getBlockState().getValue(TeslaCoilBlock.FACING) == Direction.UP) spawnChargingParticles(level, worldPosition.below(2));
+		else targetNearby(this::spawnZapParticles, true);
 
 		if (particleTicks != 0) {
 			particleTicks--;
@@ -194,11 +204,48 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 		ParticleUtils.spawnParticlesOnBlockFaces(level, worldPosition, ParticleTypes.ELECTRIC_SPARK, UniformInt.of(1, particlesSpawned));
 	}
 
-	public void spawnChargingParticle(Level level, BlockPos blockPos) {
+	@OnlyIn(Dist.CLIENT)
+	public void spawnChargingParticles(Level level, BlockPos blockPos) {
 		if (level.random.nextInt(8) != 0) return;
 		Vec3 pos = Vec3.atCenterOf(blockPos);
 		level.addParticle(ParticleTypes.ELECTRIC_SPARK, pos.x + (level.random.nextFloat() - .5f) * .5f,
 				pos.y + .5f, pos.z + (level.random.nextFloat() - .5f) * .5f, 0, 1 / 8f, 0);
+	}
+
+	@OnlyIn(Dist.CLIENT)
+	public void spawnZapParticles(LivingEntity entity) {
+		if (level.random.nextInt(5) != 0) return;
+		Vec3 targetPos = VecHelper.offsetRandomly(entity.position().add(0f, 0.5f, 0f), level.random, 0.5f);
+		BlockPos origin = worldPosition.relative(getBlockState().getValue(TeslaCoilBlock.FACING).getOpposite());
+		Vec3 startPos = Vec3.atCenterOf(origin);
+
+		Vec3 dist = targetPos.subtract(startPos);
+		double points = 12.0;
+
+		for(int i = 0; (double)i < points; ++i) {
+			Vec3 sub = startPos.add(dist.x / points * (double)i, dist.y / points * (double)i, dist.z / points * (double)i);
+			double fixPointDist = ((double)i - points / 2.0) / (points / 2.0);
+			double mod = 1.0 - 0.75 * Math.abs(fixPointDist);
+			double offX = (level.random.nextDouble() - 0.5) * mod;
+			double offY = (level.random.nextDouble() - 0.5) * mod;
+			double offZ = (level.random.nextDouble() - 0.5) * mod;
+			if (fixPointDist < 0.0) {
+				offY += 0.75 * mod * (0.75 + fixPointDist);
+				offX = sub.x - startPos.x < 0.0 ? -Math.abs(offX) : Math.abs(offX);
+				offZ = sub.z - startPos.z < 0.0 ? -Math.abs(offZ) : Math.abs(offZ);
+			} else {
+				offY = Math.min(targetPos.y + 1.0 * (1.0 - fixPointDist) * -Math.signum(dist.y), offY);
+				offX = Math.abs(offX) * (targetPos.x - sub.x);
+				offZ = Math.abs(offZ) * (targetPos.z - sub.z);
+			}
+
+			Util.spawnParticle(level, ParticleTypes.ELECTRIC_SPARK, sub.add(offX, offY, offZ), Vec3.ZERO);
+		}
+//		for (int i = 1; i < 10; i++) {
+//			Vec3 curPos = startPos.lerp(VecHelper.offsetRandomly(targetPos, level.random, 1f), i / 10d);
+//			Vec3 offset = VecHelper.offsetRandomly(Vec3.ZERO, level.random, 0.5f).multiply(0.5f, 1f + i / 10f, 0.5f);
+//			Util.spawnParticle(level, ParticleTypes.ELECTRIC_SPARK, curPos.add(offset), Vec3.ZERO);
+//		}
 	}
 
 	public boolean isPoweredState() {
