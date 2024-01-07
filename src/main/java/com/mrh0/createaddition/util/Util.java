@@ -2,15 +2,20 @@ package com.mrh0.createaddition.util;
 
 import com.mrh0.createaddition.energy.WireType;
 import com.mrh0.createaddition.item.WireSpool;
+import com.simibubi.create.foundation.utility.VecHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.energy.IEnergyStorage;
 
 public class Util {
@@ -85,6 +90,24 @@ public class Util {
 
 	public static MutableComponent getTextComponent(int value, String unit) {
 		return Component.literal(format(value)+unit);
+	}
+
+	// spawn a particle, like ParticleUtils.spawnParticleOnFace, except it radiates out from that direction
+	public static void spawnParticleFromBlockFace(Level level, BlockPos blockPos, Direction dir, ParticleOptions particle, double originRange, double speed) {
+		Vec3 centre = Vec3.atCenterOf(blockPos);
+		Vec3 offset = Vec3.atLowerCornerOf(dir.getNormal());
+
+		Vec3 origin = centre.add(offset.scale(0.5f)).add(
+					offset.x == 0d ? Mth.nextDouble(level.random, -originRange, originRange) : 0d,
+					offset.y == 0d ? Mth.nextDouble(level.random, -originRange, originRange) : 0d,
+					offset.z == 0d ? Mth.nextDouble(level.random, -originRange, originRange) : 0d);
+
+		Vec3 motion = VecHelper.offsetRandomly(offset.reverse().scale(0.5f), level.random, 0.5f);
+		spawnParticle(level, particle, origin, motion.scale(speed));
+	}
+
+	public static void spawnParticle(Level level, ParticleOptions particle, Vec3 spawnPos, Vec3 motion) {
+		level.addParticle(particle, spawnPos.x,  spawnPos.y, spawnPos.z, motion.x, motion.y, motion.z);
 	}
 
 	public static class Triple<A, B, C> {

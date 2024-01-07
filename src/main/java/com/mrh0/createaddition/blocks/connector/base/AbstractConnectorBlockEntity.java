@@ -1,25 +1,24 @@
 package com.mrh0.createaddition.blocks.connector.base;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import com.mrh0.createaddition.CreateAddition;
 import com.mrh0.createaddition.config.Config;
 import com.mrh0.createaddition.debug.IDebugDrawer;
-import com.mrh0.createaddition.energy.*;
+import com.mrh0.createaddition.energy.IWireNode;
+import com.mrh0.createaddition.energy.LocalNode;
+import com.mrh0.createaddition.energy.NodeRotation;
+import com.mrh0.createaddition.energy.WireType;
 import com.mrh0.createaddition.energy.network.EnergyNetwork;
-import com.mrh0.createaddition.util.Util;
 import com.mrh0.createaddition.network.EnergyNetworkPacket;
 import com.mrh0.createaddition.network.IObserveTileEntity;
 import com.mrh0.createaddition.network.ObservePacket;
+import com.mrh0.createaddition.util.Util;
 import com.simibubi.create.CreateClient;
-
 import com.simibubi.create.content.equipment.goggles.IHaveGoggleInformation;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -30,13 +29,20 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.EnergyStorage;
 import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fml.DistExecutor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public abstract class AbstractConnectorBlockEntity extends SmartBlockEntity implements IWireNode, IObserveTileEntity, IHaveGoggleInformation, IDebugDrawer {
 
@@ -259,6 +265,21 @@ public abstract class AbstractConnectorBlockEntity extends SmartBlockEntity impl
 
 	protected void specialTick() {}
 
+	private int powerTimer = 0;
+	protected void powerTick() {
+		if (getLevel() == null) return;
+		if (level.isClientSide) return;
+		EnergyNetwork network = getNetwork(0);
+		boolean hasEnergy = network != null && network.pull(1, true) > 0;
+		if (hasEnergy) powerTimer = 20;
+
+		boolean targetState = powerTimer > 0;
+		if (targetState) powerTimer--;
+
+		if (targetState != getBlockState().getValue(AbstractConnectorBlock.POWERED))
+			getLevel().setBlockAndUpdate(worldPosition, getBlockState().setValue(AbstractConnectorBlock.POWERED, targetState));
+	}
+
 	boolean externalStorageInvalid = false;
 	@Override
 	public void tick() {
@@ -269,19 +290,43 @@ public abstract class AbstractConnectorBlockEntity extends SmartBlockEntity impl
 		// Check if we need to drop any wires due to contraption.
 		if (!this.wireCache.isEmpty() && !isRemoved()) handleWireCache(level, this.wireCache);
 
+		powerTick();
 		specialTick();
 
 		if (getMode() == ConnectorMode.None) return;
 		super.tick();
 
 		if(level == null) return;
-		if(level.isClientSide()) return;
+		if(level.isClientSide()) {
+			DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::tickParticles);
+			return;
+		}
 		if(awakeNetwork(level)) notifyUpdate();
 
 		networkTick(network);
 
 		if (externalStorageInvalid) updateExternalEnergyStorage();
 
+	}
+
+	int particleTicks = 30;
+	int particlesSpawned = 0;
+	@OnlyIn(Dist.CLIENT)
+	public void tickParticles() {
+		if (!getBlockState().getValue(AbstractConnectorBlock.POWERED)) return;
+		if (particleTicks != 0) {
+			particleTicks--;
+			return;
+		}
+		if (particlesSpawned > 1) {
+			particlesSpawned--;
+			particleTicks = level.random.nextInt(4, 6 + particlesSpawned);
+		} else {
+			particlesSpawned = level.random.nextInt(0, 3);
+			particleTicks = level.random.nextInt(20, 80); // level.random.nextInt(80, 240);
+		}
+		Direction face = getBlockState().getValue(AbstractConnectorBlock.FACING);
+		Util.spawnParticleFromBlockFace(level, worldPosition, face, ParticleTypes.ELECTRIC_SPARK, 0.2f, 0.5f);
 	}
 
 	private final static IEnergyStorage NULL_ES = new EnergyStorage(0, 0, 0);

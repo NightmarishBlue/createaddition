@@ -24,6 +24,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition.Builder;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.shapes.BooleanOp;
@@ -33,6 +34,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public abstract class AbstractConnectorBlock<BE extends AbstractConnectorBlockEntity> extends Block implements IBE<BE>, IWrenchable, ITransformableBlock {
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
 	public static final EnumProperty<ConnectorMode> MODE = EnumProperty.create("mode", ConnectorMode.class);
+	public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
 	public static final EnumProperty<ConnectorVariant> VARIANT = EnumProperty.create("variant", ConnectorVariant.class);
 	private static final VoxelShape boxwe = Block.box(0,7,7,10,9,9);
 	private static final VoxelShape boxsn = Block.box(7,7,0,9,9,10);
@@ -48,7 +50,7 @@ public abstract class AbstractConnectorBlock<BE extends AbstractConnectorBlockEn
 
 	@Override
 	protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-		builder.add(FACING, MODE, NodeRotation.ROTATION, VARIANT);
+		builder.add(FACING, MODE, NodeRotation.ROTATION, VARIANT, POWERED);
 	}
 
 	@Override
@@ -56,7 +58,7 @@ public abstract class AbstractConnectorBlock<BE extends AbstractConnectorBlockEn
 		Direction dir = c.getClickedFace().getOpposite();
 		ConnectorMode mode = ConnectorMode.test(c.getLevel(), c.getClickedPos().relative(dir), c.getClickedFace());
 		ConnectorVariant variant = ConnectorVariant.test(c.getLevel(), c.getClickedPos().relative(dir), c.getClickedFace());
-		return this.defaultBlockState().setValue(FACING, dir).setValue(MODE, mode).setValue(VARIANT, variant);
+		return this.defaultBlockState().setValue(FACING, dir).setValue(MODE, mode).setValue(VARIANT, variant).setValue(POWERED, false);
 	}
 
 	@Override
