@@ -9,12 +9,15 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.energy.IEnergyStorage;
 
@@ -108,6 +111,22 @@ public class Util {
 
 	public static void spawnParticle(Level level, ParticleOptions particle, Vec3 spawnPos, Vec3 motion) {
 		level.addParticle(particle, spawnPos.x,  spawnPos.y, spawnPos.z, motion.x, motion.y, motion.z);
+	}
+
+	public static void sendParticles(ServerLevel level, ParticleOptions particle, Vec3 spawnPos, int numParticles, Vec3 offsetVec, double speed) {
+		level.sendParticles(particle, spawnPos.x, spawnPos.y, spawnPos.z, numParticles, offsetVec.x, offsetVec.y, offsetVec.z, speed);
+	}
+
+	public static Vec3 randomPointInBox(AABB box, RandomSource source) {
+		return new Vec3(
+				Mth.nextDouble(source, box.minX, box.maxX),
+				Mth.nextDouble(source, box.minY, box.maxY),
+				Mth.nextDouble(source, box.minZ, box.maxZ)
+		);
+	}
+
+	public static Vec3 randomVec(float radius, RandomSource source) {
+		return VecHelper.offsetRandomly(Vec3.ZERO, source, radius);
 	}
 
 	public static class Triple<A, B, C> {

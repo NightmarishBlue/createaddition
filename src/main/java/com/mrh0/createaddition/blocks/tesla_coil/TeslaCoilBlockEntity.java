@@ -185,7 +185,11 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 		if (!isPoweredState()) return;
 		// spawn processing particles when the tesla is charging an item
 		if (getBlockState().getValue(TeslaCoilBlock.FACING) == Direction.UP) spawnChargingParticles(level, worldPosition.below(2));
-		else targetNearby(this::spawnZapParticles, true);
+		// spawn zaps and an aura otherwise
+		else {
+			targetNearby(this::spawnZapParticles, true);
+			spawnElectricFieldParticles(3);
+		}
 
 		if (particleTicks != 0) {
 			particleTicks--;
@@ -215,7 +219,7 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 	@OnlyIn(Dist.CLIENT)
 	public void spawnZapParticles(LivingEntity entity) {
 		if (level.random.nextInt(5) != 0) return;
-		Vec3 targetPos = VecHelper.offsetRandomly(entity.position().add(0f, 0.5f, 0f), level.random, 0.5f);
+		Vec3 targetPos = Util.randomPointInBox(entity.getBoundingBox(), level.random);
 		BlockPos origin = worldPosition.relative(getBlockState().getValue(TeslaCoilBlock.FACING).getOpposite());
 		Vec3 startPos = Vec3.atCenterOf(origin);
 
@@ -246,6 +250,17 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 //			Vec3 offset = VecHelper.offsetRandomly(Vec3.ZERO, level.random, 0.5f).multiply(0.5f, 1f + i / 10f, 0.5f);
 //			Util.spawnParticle(level, ParticleTypes.ELECTRIC_SPARK, curPos.add(offset), Vec3.ZERO);
 //		}
+	}
+
+	@OnlyIn(Dist.CLIENT)
+	public void spawnElectricFieldParticles(int numParticles) {
+		if (level.random.nextInt(8) != 0) return;
+		Vec3 origin = Vec3.atCenterOf(worldPosition.above());
+		float radius = Config.TESLA_COIL_HURT_RANGE.get();
+		for (int i = 0; i < numParticles; i++) {
+			Vec3 spawnPos = VecHelper.offsetRandomly(origin, level.random, radius);
+			Util.spawnParticle(level, ParticleTypes.ELECTRIC_SPARK, spawnPos, Util.randomVec(0.2f, level.random));
+		}
 	}
 
 	public boolean isPoweredState() {
