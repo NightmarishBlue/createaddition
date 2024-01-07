@@ -12,6 +12,7 @@ import com.mrh0.createaddition.index.CABlocks;
 import com.mrh0.createaddition.util.Util;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.kinetics.base.GeneratingKineticBlockEntity;
+import com.simibubi.create.content.kinetics.base.IRotate;
 import com.simibubi.create.content.kinetics.motor.KineticScrollValueBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.CenteredSideValueBoxTransform;
@@ -21,14 +22,20 @@ import com.simibubi.create.foundation.utility.Lang;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.ParticleUtils;
+import net.minecraft.util.valueproviders.UniformInt;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fml.DistExecutor;
 
 public class ElectricMotorBlockEntity extends GeneratingKineticBlockEntity {
 
@@ -194,7 +201,11 @@ public class ElectricMotorBlockEntity extends GeneratingKineticBlockEntity {
 		}
 
 		//Old Lazy
-		if(level.isClientSide()) return;
+		if(level.isClientSide()) {
+			DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::tickParticles);
+			return;
+		}
+
 		int con = getEnergyConsumptionRate(generatedSpeed.getValue());
 		if(!active) {
 			if(energy.getEnergyStored() > con * 2 && !getBlockState().getValue(ElectricMotorBlock.POWERED)) {
@@ -209,6 +220,27 @@ public class ElectricMotorBlockEntity extends GeneratingKineticBlockEntity {
 				updateGeneratedRotation();
 			}
 		}
+	}
+
+	int particleTicks = 30;
+	int particlesSpawned = 0;
+	@OnlyIn(Dist.CLIENT)
+	public void tickParticles() {
+		if(getGeneratedSpeed() != 0f) return;
+		if (particleTicks != 0) {
+			particleTicks--;
+			return;
+		}
+		if (particlesSpawned > 1) {
+			particlesSpawned--;
+			particleTicks = level.random.nextInt(4, 6 + particlesSpawned);
+		} else {
+			int density = IRotate.SpeedLevel.of(getSpeed()).ordinal();
+			particlesSpawned = level.random.nextInt(0, density) + 2;
+			particleTicks = level.random.nextInt(60, 20 * (10 - density));
+		}
+		ParticleUtils.spawnParticlesOnBlockFaces(level, worldPosition, ParticleTypes.ELECTRIC_SPARK, UniformInt.of(1, particlesSpawned));
+
 	}
 
 	public static int getDurationAngle(int deg, float initialProgress, float speed) {

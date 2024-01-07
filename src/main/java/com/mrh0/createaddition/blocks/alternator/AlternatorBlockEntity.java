@@ -6,24 +6,31 @@ import com.mrh0.createaddition.CreateAddition;
 import com.mrh0.createaddition.config.Config;
 import com.mrh0.createaddition.energy.InternalEnergyStorage;
 import com.mrh0.createaddition.index.CABlocks;
+import com.mrh0.createaddition.util.ParticleUtil;
 import com.mrh0.createaddition.util.Util;
-import com.simibubi.create.AllBlocks;
+import com.simibubi.create.content.kinetics.base.IRotate;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.foundation.utility.Lang;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.ParticleUtils;
+import net.minecraft.util.valueproviders.UniformInt;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fml.DistExecutor;
 
 public class AlternatorBlockEntity extends KineticBlockEntity {
 
@@ -82,7 +89,10 @@ public class AlternatorBlockEntity extends KineticBlockEntity {
 	@Override
 	public void tick() {
 		super.tick();
-		if(level.isClientSide()) return;
+		if(level.isClientSide()) {
+			DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::tickParticles);
+			return;
+		}
 		if(firstTickState) firstTick();
 		firstTickState = false;
 
@@ -96,6 +106,26 @@ public class AlternatorBlockEntity extends KineticBlockEntity {
 			int ext = energy.extractEnergy(ies.receiveEnergy(Config.ALTERNATOR_MAX_OUTPUT.get(), true), false);
 			ies.receiveEnergy(ext, false);
 		}
+	}
+
+	int particleTicks = 30;
+	int particlesSpawned = 0;
+	@OnlyIn(Dist.CLIENT)
+	public void tickParticles() {
+		if(!(Math.abs(getSpeed()) > 0 && isSpeedRequirementFulfilled())) return;
+		if (particleTicks != 0) {
+			particleTicks--;
+			return;
+		}
+		if (particlesSpawned > 1) {
+			particlesSpawned--;
+			particleTicks = level.random.nextInt(4, 6 + particlesSpawned);
+		} else {
+			int density = IRotate.SpeedLevel.of(getSpeed()).ordinal();
+			particlesSpawned = level.random.nextInt(0, density) + 2;
+			particleTicks = level.random.nextInt(60, 20 * (10 - density));
+		}
+		ParticleUtils.spawnParticlesOnBlockFaces(level, worldPosition, ParticleTypes.ELECTRIC_SPARK, UniformInt.of(1, particlesSpawned));
 	}
 
 	public static int getEnergyProductionRate(int rpm) {
