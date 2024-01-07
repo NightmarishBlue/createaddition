@@ -1,9 +1,5 @@
 package com.mrh0.createaddition.blocks.tesla_coil;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
 import com.mrh0.createaddition.config.Config;
 import com.mrh0.createaddition.energy.BaseElectricBlockEntity;
 import com.mrh0.createaddition.index.CABlocks;
@@ -11,15 +7,16 @@ import com.mrh0.createaddition.index.CAEffects;
 import com.mrh0.createaddition.index.CARecipes;
 import com.mrh0.createaddition.recipe.charging.ChargingRecipe;
 import com.mrh0.createaddition.util.Util;
-
 import com.simibubi.create.content.equipment.goggles.IHaveGoggleInformation;
 import com.simibubi.create.content.kinetics.belt.behaviour.BeltProcessingBehaviour;
 import com.simibubi.create.content.kinetics.belt.behaviour.TransportedItemStackHandlerBehaviour;
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.ParticleUtils;
+import net.minecraft.util.valueproviders.UniformInt;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
@@ -30,10 +27,18 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.wrapper.RecipeWrapper;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHaveGoggleInformation {
 
@@ -97,6 +102,7 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 
 	protected BeltProcessingBehaviour.ProcessingResult onCharge(TransportedItemStack transported, TransportedItemStackHandlerBehaviour handler) {
 		BeltProcessingBehaviour.ProcessingResult res = chargeCompundAndStack(transported, handler);
+//		if (res == BeltProcessingBehaviour.ProcessingResult.HOLD) spawnChargingParticle(level, worldPosition.offset(0, 5, 0));
 		return res;
 	}
 
@@ -142,6 +148,7 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 				//level.playLocalSound(getBlockPos().getX(), getBlockPos().getY(), getBlockPos().getZ(), SoundEvents.BEE_LOOP, SoundSource.BLOCKS, 1f, 16f, false);
 				soundTimeout = 0;
 			}
+			DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::tickParticles);
 			return;
 		}
 		int signal = getLevel().getBestNeighborSignal(getBlockPos());
@@ -160,6 +167,38 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 		else
 			if(isPoweredState())
 				CABlocks.TESLA_COIL.get().setPowered(level, getBlockPos(), false);
+	}
+
+	int particleTicks = 30;
+	int particlesSpawned = 0;
+	@OnlyIn(Dist.CLIENT)
+	public void tickParticles() {
+		if (!isPoweredState()) return;
+		// spawn processing particles when the tesla is charging an item
+		if (getBlockState().getValue(TeslaCoilBlock.FACING) == Direction.UP) spawnChargingParticle(level, worldPosition.below(2));
+
+		if (particleTicks != 0) {
+			particleTicks--;
+			return;
+		}
+
+		// looks complex but it's just a decaying loop of sparks - when a burst finishes, a bigger delay is used
+		if (particlesSpawned > 1) {
+			particlesSpawned--;
+			particleTicks = level.random.nextInt(4, 6 + particlesSpawned);
+		} else {
+			particlesSpawned = level.random.nextInt(2, 5);
+			particleTicks = level.random.nextInt(30, 60);
+		}
+
+		ParticleUtils.spawnParticlesOnBlockFaces(level, worldPosition, ParticleTypes.ELECTRIC_SPARK, UniformInt.of(1, particlesSpawned));
+	}
+
+	public void spawnChargingParticle(Level level, BlockPos blockPos) {
+		if (level.random.nextInt(8) != 0) return;
+		Vec3 pos = Vec3.atCenterOf(blockPos);
+		level.addParticle(ParticleTypes.ELECTRIC_SPARK, pos.x + (level.random.nextFloat() - .5f) * .5f,
+				pos.y + .5f, pos.z + (level.random.nextFloat() - .5f) * .5f, 0, 1 / 8f, 0);
 	}
 
 	public boolean isPoweredState() {
