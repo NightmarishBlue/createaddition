@@ -15,7 +15,9 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.utility.VecHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.ParticleUtils;
 import net.minecraft.util.valueproviders.UniformInt;
 import net.minecraft.world.damagesource.DamageSource;
@@ -184,18 +186,18 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 	public void tickParticles() {
 		if (!isPoweredState()) return;
 		// spawn processing particles when the tesla is charging an item
-		if (getBlockState().getValue(TeslaCoilBlock.FACING) == Direction.UP) spawnChargingParticles(level, worldPosition.below(2));
+		if (getBlockState().getValue(TeslaCoilBlock.FACING) == Direction.UP) {
+			spawnChargingParticles();
+		}
 		// spawn zaps and an aura otherwise
 		else {
 			targetNearby(this::spawnZapParticles, true);
 			spawnElectricFieldParticles(3);
 		}
-
 		if (particleTicks != 0) {
 			particleTicks--;
 			return;
 		}
-
 		// looks complex but it's just a decaying loop of sparks - when a burst finishes, a bigger delay is used
 		if (particlesSpawned > 1) {
 			particlesSpawned--;
@@ -204,16 +206,16 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 			particlesSpawned = level.random.nextInt(2, 5);
 			particleTicks = level.random.nextInt(30, 60);
 		}
-
 		ParticleUtils.spawnParticlesOnBlockFaces(level, worldPosition, ParticleTypes.ELECTRIC_SPARK, UniformInt.of(1, particlesSpawned));
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	public void spawnChargingParticles(Level level, BlockPos blockPos) {
+	public void spawnChargingParticles() {
+		ParticleUtils.spawnParticlesAlongAxis(Direction.Axis.Y, level, worldPosition.below(), level.random.nextDouble(), ParticleTypes.ELECTRIC_SPARK, UniformInt.of(0, 3));
 		if (level.random.nextInt(8) != 0) return;
-		Vec3 pos = Vec3.atCenterOf(blockPos);
-		level.addParticle(ParticleTypes.ELECTRIC_SPARK, pos.x + (level.random.nextFloat() - .5f) * .5f,
-				pos.y + .5f, pos.z + (level.random.nextFloat() - .5f) * .5f, 0, 1 / 8f, 0);
+		Vec3 itemPos = Vec3.atCenterOf(worldPosition.below(2));
+		level.addParticle(ParticleTypes.ELECTRIC_SPARK, itemPos.x + (level.random.nextFloat() - .5f) * .5f,
+				itemPos.y + .5f, itemPos.z + (level.random.nextFloat() - .5f) * .5f, 0, 1 / 8f, 0);
 	}
 
 	@OnlyIn(Dist.CLIENT)
