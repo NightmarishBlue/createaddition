@@ -1,7 +1,5 @@
 package com.mrh0.createaddition.blocks.alternator;
 
-import java.util.List;
-
 import com.mrh0.createaddition.CreateAddition;
 import com.mrh0.createaddition.config.Config;
 import com.mrh0.createaddition.energy.InternalEnergyStorage;
@@ -10,7 +8,6 @@ import com.mrh0.createaddition.util.Util;
 import com.simibubi.create.content.kinetics.base.IRotate;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.foundation.utility.Lang;
-
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -30,6 +27,8 @@ import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.IEnergyStorage;
 import net.minecraftforge.fml.DistExecutor;
+
+import java.util.List;
 
 public class AlternatorBlockEntity extends KineticBlockEntity {
 
@@ -111,7 +110,7 @@ public class AlternatorBlockEntity extends KineticBlockEntity {
 	int particlesSpawned = 0;
 	@OnlyIn(Dist.CLIENT)
 	public void tickParticles() {
-		if(!(Math.abs(getSpeed()) > 0 && isSpeedRequirementFulfilled())) return;
+		if(!(getSpeed() != 0 && isSpeedRequirementFulfilled())) return;
 		if (particleTicks != 0) {
 			particleTicks--;
 			return;
@@ -120,11 +119,11 @@ public class AlternatorBlockEntity extends KineticBlockEntity {
 			particlesSpawned--;
 			particleTicks = level.random.nextInt(4, 6 + particlesSpawned);
 		} else {
-			int density = IRotate.SpeedLevel.of(getSpeed()).ordinal();
-			particlesSpawned = level.random.nextInt(0, density) + 2;
-			particleTicks = level.random.nextInt(60, 20 * (10 - density));
+			int density = IRotate.SpeedLevel.of(getSpeed()).ordinal() + 1;
+			particlesSpawned = level.random.nextInt(0, density) + 1;
+			particleTicks = level.random.nextInt(50, 20 * (10 - density));
 		}
-		ParticleUtils.spawnParticlesOnBlockFaces(level, worldPosition, ParticleTypes.ELECTRIC_SPARK, UniformInt.of(1, particlesSpawned));
+		ParticleUtils.spawnParticlesOnBlockFaces(level, worldPosition, ParticleTypes.ELECTRIC_SPARK, UniformInt.of(0, particlesSpawned));
 	}
 
 	public static int getEnergyProductionRate(int rpm) {
