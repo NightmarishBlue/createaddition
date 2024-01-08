@@ -6,7 +6,10 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ArmorMaterial;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -111,5 +114,14 @@ public class Util {
 			}
 		}
 		return null;
+	}
+
+	public static boolean fullSetOf(LivingEntity entity, ArmorMaterial material) {
+		for(ItemStack stack : entity.getArmorSlots()) {
+			Item item = stack.getItem();
+			if (!(item instanceof ArmorItem)) return false;
+			if (((ArmorItem) item).getMaterial() != material) return false;
+		}
+		return true;
 	}
 }

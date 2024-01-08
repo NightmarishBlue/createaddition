@@ -18,8 +18,8 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ArmorMaterials;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -105,16 +105,7 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 		for(LivingEntity e : ents) {
 			if(e == null) return;
 
-			boolean allChain = true;
-			for(ItemStack armor : e.getArmorSlots()) {
-				if(armor.is(Items.CHAINMAIL_BOOTS)) continue;
-				if(armor.is(Items.CHAINMAIL_LEGGINGS)) continue;
-				if(armor.is(Items.CHAINMAIL_CHESTPLATE)) continue;
-				if(armor.is(Items.CHAINMAIL_HELMET)) continue;
-				allChain = false;
-				break;
-			}
-			if(allChain) continue;
+			if(Util.fullSetOf(e, ArmorMaterials.LEATHER) || Util.fullSetOf(e, ArmorMaterials.CHAIN)) continue;
 
 			int dmg = Config.TESLA_COIL_HURT_DMG_MOB.get();
 			int time = Config.TESLA_COIL_HURT_EFFECT_TIME_MOB.get();
