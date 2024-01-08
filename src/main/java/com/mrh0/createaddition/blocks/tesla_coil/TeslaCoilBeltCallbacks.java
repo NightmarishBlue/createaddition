@@ -5,6 +5,7 @@ import com.simibubi.create.content.kinetics.belt.behaviour.TransportedItemStackH
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.ItemStack;
 
 public class TeslaCoilBeltCallbacks {
 	public static BeltProcessingBehaviour.ProcessingResult onItemReceived(TransportedItemStack transported, TransportedItemStackHandlerBehaviour handler, TeslaCoilBlockEntity te) {
@@ -15,6 +16,7 @@ public class TeslaCoilBeltCallbacks {
 	}
 
 	public static BeltProcessingBehaviour.ProcessingResult whenItemHeld(TransportedItemStack transported, TransportedItemStackHandlerBehaviour handler, TeslaCoilBlockEntity te) {
+		te.chargedItem = ItemStack.EMPTY;
 		return te.onCharge(transported, handler);
 	}
 }

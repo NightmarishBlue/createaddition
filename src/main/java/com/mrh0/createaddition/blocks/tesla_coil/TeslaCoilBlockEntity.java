@@ -49,6 +49,7 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 	private Optional<ChargingRecipe> recipeCache = Optional.empty();
 
 	private final ItemStackHandler inputInv;
+	public ItemStack chargedItem = ItemStack.EMPTY; // sync the charged item between client and server for particle effects
 	private int chargeAccumulator;
 	protected int poweredTimer = 0;
 
@@ -106,7 +107,6 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 
 	protected BeltProcessingBehaviour.ProcessingResult onCharge(TransportedItemStack transported, TransportedItemStackHandlerBehaviour handler) {
 		BeltProcessingBehaviour.ProcessingResult res = chargeCompundAndStack(transported, handler);
-//		if (res == BeltProcessingBehaviour.ProcessingResult.HOLD) spawnChargingParticle(level, worldPosition.offset(0, 5, 0));
 		return res;
 	}
 
@@ -219,6 +219,19 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 	}
 
 	@OnlyIn(Dist.CLIENT)
+	public void spawnItemChips(Vec3 pos, ItemStack stack, int amount) {
+		if (level == null || !level.isClientSide)
+			return;
+		for (int i = 0; i < amount; i++) {
+			Vec3 motion = VecHelper.offsetRandomly(Vec3.ZERO, level.random, .1f)
+					.multiply(1, 0, 1);
+			motion = motion.add(0, amount != 1 ? 0.125f : 1 / 16f, 0);
+			level.addParticle(new ItemParticleOption(ParticleTypes.ITEM, stack), pos.x, pos.y - .25f, pos.z, motion.x,
+					motion.y, motion.z);
+		}
+	}
+
+	@OnlyIn(Dist.CLIENT)
 	public void spawnZapParticles(LivingEntity entity) {
 		if (level.random.nextInt(5) != 0) return;
 		Vec3 targetPos = Util.randomPointInBox(entity.getBoundingBox(), level.random);
@@ -314,6 +327,8 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 				outList.add(result);
 				handler.handleProcessingOnItem(transported, TransportedItemStackHandlerBehaviour.TransportedResult.convertToAndLeaveHeld(outList, remainingStack));
 				chargeAccumulator = 0;
+				chargedItem = stack;
+				sendData();
 			}
 			return true;
 		}
@@ -322,5 +337,29 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 
 	public Optional<ChargingRecipe> find(RecipeWrapper wrapper, Level world) {
 		return world.getRecipeManager().getRecipeFor(CARecipes.CHARGING_TYPE.get(), wrapper, world);
+	}
+
+	@Override
+	public void read(CompoundTag compound, boolean clientPacket) {
+		super.read(compound, clientPacket);
+		if (!clientPacket) return;
+		chargedItem = ItemStack.of(compound.getCompound("ChargedItem"));
+		finishedChargingItem();
+	}
+
+	@Override
+	public void write(CompoundTag compound, boolean clientPacket) {
+		super.read(compound, clientPacket);
+		if (!clientPacket) return;
+		compound.put("ChargedItem", chargedItem.serializeNBT());
+		chargedItem = ItemStack.EMPTY;
+	}
+
+	void finishedChargingItem() {
+		if (!chargedItem.isEmpty()) {
+			Vec3 pos = VecHelper.getCenterOf(worldPosition.below(2)).add(0f, 8f / 16f, 0f);
+			spawnItemChips(pos, chargedItem, 8);
+		}
+		chargedItem = ItemStack.EMPTY;
 	}
 }
