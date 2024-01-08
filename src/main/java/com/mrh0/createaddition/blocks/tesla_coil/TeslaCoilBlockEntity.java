@@ -1,9 +1,5 @@
 package com.mrh0.createaddition.blocks.tesla_coil;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
 import com.mrh0.createaddition.config.Config;
 import com.mrh0.createaddition.energy.BaseElectricBlockEntity;
 import com.mrh0.createaddition.index.CABlocks;
@@ -11,13 +7,11 @@ import com.mrh0.createaddition.index.CAEffects;
 import com.mrh0.createaddition.index.CARecipes;
 import com.mrh0.createaddition.recipe.charging.ChargingRecipe;
 import com.mrh0.createaddition.util.Util;
-
 import com.simibubi.create.content.equipment.goggles.IHaveGoggleInformation;
 import com.simibubi.create.content.kinetics.belt.behaviour.BeltProcessingBehaviour;
 import com.simibubi.create.content.kinetics.belt.behaviour.TransportedItemStackHandlerBehaviour;
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.damagesource.DamageSource;
@@ -35,6 +29,10 @@ import net.minecraftforge.energy.IEnergyStorage;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.wrapper.RecipeWrapper;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHaveGoggleInformation {
 
 	private Optional<ChargingRecipe> recipeCache = Optional.empty();
@@ -43,7 +41,7 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 	private int chargeAccumulator;
 	protected int poweredTimer = 0;
 
-	private static final DamageSource DMG_SOURCE = new DamageSource("tesla_coil");
+	private static final DamageSource DMG_SOURCE = new DamageSource("tesla_coil").bypassArmor();
 
 	public TeslaCoilBlockEntity(BlockEntityType<?> tileEntityTypeIn, BlockPos pos, BlockState state) {
 		super(tileEntityTypeIn, pos, state);
@@ -124,7 +122,10 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 				dmg = Config.TESLA_COIL_HURT_DMG_PLAYER.get();
 				time = Config.TESLA_COIL_HURT_EFFECT_TIME_PLAYER.get();
 			}
-			if(dmg > 0) e.hurt(DMG_SOURCE, dmg);
+			if(dmg > 0) {
+				if (dmg > e.getHealth()) e.setRemainingFireTicks(1);
+				e.hurt(DMG_SOURCE, dmg);
+			}
 			if(time > 0) e.addEffect(new MobEffectInstance(CAEffects.SHOCKING.get(), time));
 		}
 	}
