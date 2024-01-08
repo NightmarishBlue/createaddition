@@ -6,6 +6,10 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ArmorItem;
@@ -123,5 +127,19 @@ public class Util {
 			if (((ArmorItem) item).getMaterial() != material) return false;
 		}
 		return true;
+	}
+
+	public static void fakeLightning(LivingEntity entity, ServerLevel level) {
+		LightningBolt bolt = new LightningBolt(EntityType.LIGHTNING_BOLT, level);
+		bolt.setPos(entity.position());
+		bolt.setDamage(0f);
+		bolt.setVisualOnly(true);
+
+		int fireTicks = entity.getRemainingFireTicks();
+		level.addWithUUID(bolt);
+
+		entity.thunderHit(level, bolt);
+		entity.setRemainingFireTicks(fireTicks);
+		bolt.remove(Entity.RemovalReason.DISCARDED);
 	}
 }

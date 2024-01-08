@@ -14,6 +14,7 @@ import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
@@ -113,7 +114,10 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 				dmg = Config.TESLA_COIL_HURT_DMG_PLAYER.get();
 				time = Config.TESLA_COIL_HURT_EFFECT_TIME_PLAYER.get();
 			}
-			if(dmg > 0) {
+
+			if (level.random.nextInt(50) == 0) {
+				Util.fakeLightning(e, (ServerLevel) level);
+			} else if (dmg > 0) {
 				if (dmg > e.getHealth()) e.setRemainingFireTicks(1);
 				e.hurt(DMG_SOURCE, dmg);
 			}
