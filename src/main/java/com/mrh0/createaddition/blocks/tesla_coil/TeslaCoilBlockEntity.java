@@ -196,6 +196,8 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 	@OnlyIn(Dist.CLIENT)
 	public void tickParticles() {
 		if (!isPoweredState()) return;
+		Direction pointing = getBlockState().getValue(TeslaCoilBlock.FACING).getOpposite();
+		ParticleUtils.spawnParticlesAlongAxis(pointing.getAxis(), level, worldPosition.relative(pointing), level.random.nextDouble(), ParticleTypes.ELECTRIC_SPARK, UniformInt.of(0, 3));
 		// spawn processing particles when the tesla is charging an item
 		if (getBlockState().getValue(TeslaCoilBlock.FACING) == Direction.UP) {
 			spawnChargingParticles();
@@ -222,7 +224,6 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 
 	@OnlyIn(Dist.CLIENT)
 	public void spawnChargingParticles() {
-		ParticleUtils.spawnParticlesAlongAxis(Direction.Axis.Y, level, worldPosition.below(), level.random.nextDouble(), ParticleTypes.ELECTRIC_SPARK, UniformInt.of(0, 3));
 		if (level.random.nextInt(8) != 0) return;
 		Vec3 itemPos = Vec3.atCenterOf(worldPosition.below(2));
 		level.addParticle(ParticleTypes.ELECTRIC_SPARK, itemPos.x + (level.random.nextFloat() - .5f) * .5f,
