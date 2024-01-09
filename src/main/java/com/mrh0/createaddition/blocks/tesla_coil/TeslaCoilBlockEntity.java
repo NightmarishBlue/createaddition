@@ -110,10 +110,21 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 		return res;
 	}
 
+	public AABB getTargetingBox() {
+		Direction point = getBlockState().getValue(TeslaCoilBlock.FACING).getOpposite();
+		BlockPos origin = getBlockPos().relative(point);
+		double scaleAmount = Config.TESLA_COIL_HURT_RANGE.get() / 2f;
+		Vec3 scaledNormal = Vec3.atLowerCornerOf(point.getNormal()).scale(scaleAmount);
+		AABB box = new AABB(origin)
+				.inflate(Config.TESLA_COIL_HURT_RANGE.get())
+				.move(scaledNormal)
+				.contract(scaledNormal.x, scaledNormal.y, scaledNormal.z);
+		return box;
+	}
+
 	private void targetNearby(Consumer<LivingEntity> callback, boolean simulate) {
 		if (simulate && !level.isClientSide) localEnergy.internalConsumeEnergy(Config.TESLA_COIL_HURT_ENERGY_REQUIRED.get());
-		BlockPos origin = getBlockPos().relative(getBlockState().getValue(TeslaCoilBlock.FACING).getOpposite());
-		List<LivingEntity> ents = getLevel().getEntitiesOfClass(LivingEntity.class, new AABB(origin).inflate(Config.TESLA_COIL_HURT_RANGE.get()));
+		List<LivingEntity> ents = getLevel().getEntitiesOfClass(LivingEntity.class, getTargetingBox());
 		for(LivingEntity e : ents) {
 			if(e == null) return;
 
@@ -270,10 +281,9 @@ public class TeslaCoilBlockEntity extends BaseElectricBlockEntity implements IHa
 	@OnlyIn(Dist.CLIENT)
 	public void spawnElectricFieldParticles(int numParticles) {
 		if (level.random.nextInt(8) != 0) return;
-		Vec3 origin = Vec3.atCenterOf(worldPosition.above());
-		float radius = Config.TESLA_COIL_HURT_RANGE.get();
+		AABB box = getTargetingBox();
 		for (int i = 0; i < numParticles; i++) {
-			Vec3 spawnPos = VecHelper.offsetRandomly(origin, level.random, radius);
+			Vec3 spawnPos = Util.randomPointInBox(box, level.random);
 			Util.spawnParticle(level, ParticleTypes.ELECTRIC_SPARK, spawnPos, Util.randomVec(0.2f, level.random));
 		}
 	}
